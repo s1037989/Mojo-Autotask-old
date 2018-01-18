@@ -10,11 +10,12 @@ use Mojo::JSON 'j';
 use Mojo::Util 'encode';
 use Mojo::Collection;
 
+use Data::Structure::Util;
 use WebService::Autotask;
 
-has 'format';
+has [qw/backend unbless/];
+has format => '';
 has log => sub { Mojo::Log->new };
-has backend => sub { die "No backend initialized\n" };
 has autotask => sub { die "No autotask configuration defined\n" };
 has webservice => sub { state $webservice = WebService::Autotask->new(shift->autotask) };
 
@@ -47,19 +48,8 @@ has cache_basis => sub { {
 };
 has active => sub { [qw(Account ActionType AllocationCode ClassificationIcon Contact Country Currency InstalledProduct InstalledProductType InventoryLocation PaymentTerm Product ProductVendor QuoteTemplate Resource ResourceRole Role Skill TaxCategory TaxRegion)] };
 
-#sub new {
-#  my $self = shift->SUPER::new(@_);
-#
-#  return $self;
-#}
-
-sub _fetch {
-  my $self = shift;
-  my $cb = pop;
-  my $col = Mojo::Collection->with_roles('+Key')->new;
-  eval { my $res = $cb->(); push @$col, ref $res eq 'ARRAY' ? @$res : $res; };
-  $self->log->error("WebService::Autotask: $@") if $@;
-  return $col;
+sub get_ticket_by_number {
+  shift->query('Ticket', [{name => 'TicketNumber', expressions => [{op => 'Equals', value => shift}] }] );
 }
 
 sub getThresholdAndUsageInfo {
@@ -144,6 +134,15 @@ sub _cache_query {
 sub _expired {
   my ($self, $last_modified) = @_;
   return $last_modified && $last_modified < time - $self->cache_time;
+}
+
+sub _fetch {
+  my $self = shift;
+  my $cb = pop;
+  my $col = Mojo::Collection->with_roles('+Key')->new;
+  eval { my $res = $cb->(); push @$col, ref $res eq 'ARRAY' ? @$res : $res; };
+  $self->log->error("WebService::Autotask: $@") if $@;
+  return $self->unbless ? $col->map(sub{Data::Structure::Util::unbless $_}) : $col;
 }
 
 sub _tf { encode 'UTF-8', !$_[0] ? '' : lc($_[0]) eq 'true' ? '•' : lc($_[0]) eq 'false' ? '' : $_[0] || '' }

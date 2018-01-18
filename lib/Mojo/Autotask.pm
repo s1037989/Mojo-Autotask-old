@@ -13,10 +13,12 @@ use Mojo::Collection;
 use Scalar::Util 'weaken';
 
 use Mojo::Autotask::WebService;
+use Mojo::Autotask::ExecuteCommand;
 
 has 'backend';
 has log => sub { Mojo::Log->new };
 has webservice => sub { Mojo::Autotask::WebService->new(@_) };
+has execute => sub { Mojo::Autotask::Execute->new(@_) };
 
 sub new {
   my $self = shift->SUPER::new(@_);
